@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <title>Task Progress Monitor</title>
+    <style>
+        .timer{
+            width: 190px;
+            height: 40px;
+        }
+        #output {
+            width:500px;
+            background: rgb(3, 24, 30);
+            height: 300px;
+            overflow: scroll;
+        }
+
+        .msg{
+            width: 100%;
+            height: 20%;
+            background: gainsboro;
+            margin-left: auto;
+            margin-top: 5px;
+            border-radius: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+
+        /* .msg:nth-child(even) {
+            background: pink;
+            width: 40%;
+            padding: 10px;
+            border-radius: 10px;
+        } */
+    </style>
+</head>
+
+<body>
+    <h1>進捗状況モニター</h1>
+    <div>
+        <div>
+            <span>トイレ掃除</span>
+            <!-- <button id="sWash" class="timer">開始</button>            
+            <div id="sWashTime">ｓｓｓ</div>
+            <button id="eWash" class="timer">終了</button>
+            <div id="eWashTime">ｆｆｆ</div> -->
+        </div>
+
+        <table>
+            <tr>
+                <td><button id="sWash" class="timer">開始</button> </td>
+                <td><button id="eWash" class="timer">終了</button></td>
+                <td></td>        
+            </tr>
+            <tr>
+                <td><div id="sWashTime"></div></td>
+                <td><div id="eWashTime"></div></td>
+                <td><div id="WashStatus">×　未着手</div></td>
+                <td><div id="WashTotalTime"></div></td>
+            </tr>            
+        </table>
+
+        <div>
+            <br><span>洗濯</span>
+        </div>
+        <table>
+            <tr>
+                <td><button id="sLaundry" class="timer">開始</button> </td>
+                <td><button id="eLaundry" class="timer">終了</button></td>
+                <td></td>        
+            </tr>
+            <tr>
+                <td><div id="sLaundryTime"></div></td>
+                <td><div id="eLaundryTime"></div></td>
+                <td><div id="LaundryStatus">×　未着手</div></td>
+                <td><div id="LaundryTotalTime"></div></td>
+            </tr>            
+        </table>
+
+        <div>
+            <br><span>犬の散歩</span>
+        </div>
+
+        <table>
+            <tr>
+                <td><button id="sDog" class="timer">開始</button> </td>
+                <td><button id="eDog" class="timer">終了</button></td>
+                <td></td>        
+            </tr>
+            <tr>
+                <td><div id="sDogTime"></div></td>
+                <td><div id="eDogTime"></div></td>
+                <td><div id="DogStatus">×　未着手</div></td>
+                <td><div id="DogTotalTime"></div></td>
+            </tr>            
+        </table>
+        <br>
+        <table>
+            <tr>
+                <td><button id="reset" class="timer">リセット<br>（翌朝最初に押す想定）</button> </td>
+            </tr>         
+        </table>
+        <br>
+        <table>
+            <tr>
+                <td>履歴</td>        
+            </tr>         
+        </table>
+    </div>
+
+    <div id="output"></div>
+
+   
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-app.js";
+        import {
+                getDatabase,
+                ref,
+                child,
+                push,
+                set,
+                get,
+                onChildAdded,
+                remove,
+                onChildRemoved,
+                serverTimestamp,
+                onValue,
+                query,
+                orderByChild,
+                }  from "https://www.gstatic.com/firebasejs/9.14.0/firebase-database.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+      
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+         
+
+
+
+
+            
+        };
+      
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+
+        const db = getDatabase(app);
+
+        // 箱の名前を決める
+        const sWashdb = ref(db, 'startWashroom');
+        const eWashdb = ref(db, 'endWashroom');        
+        const sLaundrydb = ref(db, 'startLaundry');
+        const eLaundrydb = ref(db, 'endLaundry');        
+        const sDogdb = ref(db, 'startDog');
+        const eDogdb = ref(db, 'endDog');
+        const record = ref(db, 'record');
+                
+// ボタンを押すと、押した時間を記録。同時に履歴DBにデータを入れる関数。
+        function timeRecord(id,key, dbname, taskname){
+        $(id).on('click', function () {
+            key = {
+                date: serverTimestamp(),
+            }
+            // const newPostRef = push(dbRef); 会話履歴を残すわけではないので、固有IDは使用せず
+            set(dbname, key);
+
+            let keyForRecord = {
+                date: serverTimestamp(),
+                task: taskname,
+            }
+            const newPostRef = push(record); // 履歴を残すので固有IDを利用
+            set(newPostRef, keyForRecord);
+        });
+        }
+        
+        let startwash;
+        let endwash;
+        let startlaundry;
+        let endlaundry;
+        let startdog;
+        let enddog;
+
+        timeRecord('#sWash', startwash, sWashdb,'startwash');    
+        timeRecord('#eWash', endwash, eWashdb,'endwash');
+        timeRecord('#sLaundry', startlaundry, sLaundrydb,'startlaundry');    
+        timeRecord('#eLaundry', endlaundry, eLaundrydb,'endlaundry');
+        timeRecord('#sDog', startdog, sDogdb,'startdog');    
+        timeRecord('#eDog', enddog, eDogdb,'enddog');
+////////////////////////////////////////////////////////////////////////////////////////
+        
+// リセットボタン関連
+        // DBからの消去処理
+        $('#reset').on('click', function () {
+            remove(sWashdb); 
+            remove(eWashdb); 
+            remove(sLaundrydb); 
+            remove(eLaundrydb); 
+            remove(sDogdb); 
+            remove(eDogdb); 
+        });
+        
+        // setTimeout(window.location.reload(),5000);
+        // すべての削除が終わる前にリロードされるようで、表示が消え切らないため、jQueryで消すことにする。
+        // ただし、jQueryで処理すると、別で立ち上げた人の画面上は処理が反映されない。なので、onChildRemovedを利用。
+
+        // リセットした場合の表示消去処理
+        function initialzation(dbname, startid, endid, servicestatus){
+            onChildRemoved(dbname,function(){
+                $(startid).text('');
+                $(endid).text('');
+                $(servicestatus).text('×　未着手');
+            });
+        }
+
+        initialzation(sWashdb, "#sWashTime", "#eWashTime", '#WashStatus');
+        initialzation(sLaundrydb, "#sLaundryTime", "#eLaundryTime", '#LaundryStatus');
+        initialzation(sDogdb, "#sDogTime", "#eDogTime", '#DogStatus');
+        ////////////////////////////////////////////////////////////////////////////////////////
+        
+
+        
+//  ボタンを押した際の表示処理
+        
+        let washtimeStart;
+        let washtimeEnd;
+        let laundrytimeStart;
+        let laundrytimeEnd;
+        let dogtimeStart;
+        let dogtimeEnd;
+        
+
+        function timeUpdate (dbName, idTime, idStatus, textStatus, idAnother, anotherStatus){
+            onValue(dbName,function(data){
+                let timeName = new Date(data.val().date);
+                let month = timeName.getMonth() + 1;
+                let day = timeName.getDate(); 
+                let hour = timeName.getHours();
+                let min = timeName.getMinutes();
+                let sec = timeName.getSeconds();   
+                let timeJPform = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+                
+                $(idTime).text(timeJPform);
+                $(idStatus).text(textStatus);
+                $(idAnother).text(anotherStatus);
+                });
+        }
+        
+        
+        // on関数の中の世界は、分断されているのかもしれない。グローバル変数であっても、外から呼んでも反応しない。
+        console.log(washtimeStart);
+        // ただし、他のon関数の中では反応する
+        // DBの特定の場所を取り出すことがうまく行かなかったということも要因
+        // onValueの中で、ローカルストレージに飛ばそうとしたが、それもうまく行かない。        
+        // 結果として、所要時間計算用の時間を取り出すことが必要となったので、別途、onValue関数を作成することにした
+
+        onValue(sWashdb,function(data){
+            const sWashTr = new Date(data.val().date);
+            washtimeStart = sWashTr;
+        });
+        onValue(eWashdb,function(data){
+            const eWashTr = new Date(data.val().date);
+            washtimeEnd = eWashTr;             ;
+            let washHourDif = Math.floor((washtimeEnd-washtimeStart)/1000/60/60%24);
+            let washMinDif = Math.floor((washtimeEnd-washtimeStart)/1000/60%60);
+            let washSecDif = Math.floor((washtimeEnd-washtimeStart)/1000%60);
+            $('#WashTotalTime').text('(所要時間：'+washHourDif+'時間'+washMinDif+'分'+washSecDif+'秒）');           
+        });
+
+        onValue(sLaundrydb,function(data){
+            const sLaundryTr = new Date(data.val().date);
+            laundrytimeStart = sLaundryTr;
+        });
+        onValue(eLaundrydb,function(data){
+            const eLaundryTr = new Date(data.val().date);
+            laundrytimeEnd = eLaundryTr;             ;
+            let laundryHourDif = Math.floor((laundrytimeEnd-laundrytimeStart)/1000/60/60%24);
+            let laundryMinDif = Math.floor((laundrytimeEnd-laundrytimeStart)/1000/60%60);
+            let laundrySecDif = Math.floor((laundrytimeEnd-laundrytimeStart)/1000%60);
+            $('#LaundryTotalTime').text('(所要時間：'+laundryHourDif+'時間'+laundryMinDif+'分'+laundrySecDif+'秒）');           
+        });
+
+        onValue(sDogdb,function(data){
+            const sDogTr = new Date(data.val().date);
+            dogtimeStart = sDogTr;
+        });
+        onValue(eDogdb,function(data){
+            const eDogTr = new Date(data.val().date);
+            dogtimeEnd = eDogTr;             ;
+            let dogHourDif = Math.floor((dogtimeEnd-dogtimeStart)/1000/60/60%24);
+            let dogMinDif = Math.floor((dogtimeEnd-dogtimeStart)/1000/60%60);
+            let dogSecDif = Math.floor((dogtimeEnd-dogtimeStart)/1000%60);
+            $('#DogTotalTime').text('(所要時間：'+dogHourDif+'時間'+dogMinDif+'分'+dogSecDif+'秒）');           
+        });
+
+
+        timeUpdate(sWashdb, "#sWashTime",'#WashStatus', '〇　進行中',"#eWashTime",'' );
+        timeUpdate(eWashdb, "#eWashTime",'#WashStatus', '→　完了！');
+        timeUpdate(sLaundrydb, "#sLaundryTime",'#LaundryStatus', '〇　進行中',"#eLaundryTime",'' );
+        timeUpdate(eLaundrydb, "#eLaundryTime",'#LaundryStatus', '→　完了！');
+        timeUpdate(sDogdb, "#sDogTime",'#DogStatus', '〇　進行中',"#eDogTime",'' );
+        timeUpdate(eDogdb, "#eDogTime",'#DogStatus', '→　完了！');
+        ////////////////////////////////////////////////////////////////////////////////////////
+        
+
+        
+//  履歴用データの表示処理
+        onChildAdded(record, function (data) {            
+            const msg = data.val();
+
+            let h = `
+                <div class="msg">
+                    <p>${new Date(msg.date)}</p>
+                    <p>${msg.task}</p>
+                </div>    
+            `;
+
+            $("#output").append(h);
+            const output = document.getElementById('output');
+            output.scrollTo(0, output.scrollHeight);
+        })
+
+        ////////////////////////////////////////////////////////////////////////////////////////
+        
+
+// onvalueは新規含めて反応するため、newを設定する必要はなかった
+
+        // function timePrintNew (dbName, timeName, idTime, idStatus, textStatus){
+        //     onChildAdded(dbName,function(data){
+        //         timeName = new Date(data.val());
+        //         month = timeName.getMonth() + 1;
+        //         day = timeName.getDate(); 
+        //         hour = timeName.getHours();
+        //         min = timeName.getMinutes();
+        //         sec = timeName.getSeconds();   
+        //         timeName = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+                
+        //         $(idTime).text(timeName);
+        //         $(idStatus).text(textStatus);
+
+        //         console.log(data.val());
+
+        //         return data.val();
+                
+        //         // console.log(data.val());
+        //         // ここにreturnを入れてもundefinedとなる
+        //     });
+
+        //    ここにReturnを入れると反応する
+        // }
+
+        // timePrintNew(sWashdb, washtimeStart,"#sWashTime",'#WashStatus', '進行中');
+        // timePrintNew(eWashdb, washtimeEnd,"#eWashTime",'#WashStatus', '完了(所要時間：'+washMinDif+'分'+washSecDif+'秒）');
+        
+
+// 関数が間違っていたのかもしれないが、うまくデータを持ち出せなくなり、関数化を断念。（最終的には一部機能は関数化）
+        // function timePrintUpdate (dbName, timeName, idTime, idStatus, textStatus, idAnother, anotherStatus){
+        //     onValue(dbName,function(data){
+        //         timeName = new Date(data.val().date);
+        //         month = timeName.getMonth() + 1;
+        //         day = timeName.getDate(); 
+        //         hour = timeName.getHours();
+        //         min = timeName.getMinutes();
+        //         sec = timeName.getSeconds();   
+        //         let timeJPform = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+                
+        //         $(idTime).text(timeJPform);
+        //         $(idStatus).text(textStatus);
+        //         $(idAnother).text(anotherStatus);
+                
+        //         // console.log(data.val().date);
+        //         // return data.val().date;　ここにreturnを入れてもundefinedとなる
+        //         });
+        // returnを入れるならここ。
+        // }
+
+        
+        // let washMinDif = Math.floor((washtimeEnd-washtimeStart)/1000/60%60);
+        // let washSecDif = Math.floor((washtimeEnd-washtimeStart)/1000%60);
+
+        // timePrintUpdate(sWashdb, washtimeStart,"#sWashTime",'#WashStatus', '進行中',"#eWashTime",'' );
+        // timePrintUpdate(eWashdb, washtimeEnd,"#eWashTime",'#WashStatus', '完了(所要時間：'+washMinDif+'分'+washSecDif+'秒）');
+
+
+// 関数化前の残骸
+
+        // onValue(sWashdb,function(data){
+        //     const sWashTr = new Date(data.val().date);
+        //     washtimeStart = sWashTr;
+        //     let month = sWashTr.getMonth() + 1;
+        //     let day = sWashTr.getDate(); 
+        //     let hour = sWashTr.getHours();
+        //     let min = sWashTr.getMinutes();
+        //     let sec = sWashTr.getSeconds();   
+        //     let swashThs = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+            
+        //     $("#sWashTime").text(swashThs);          
+        //     $('#WashStatus').text('〇　進行中');
+        //     $("#eWashTime").text('');
+
+        // });
+
+        
+        
+        
+
+        // onValue(sLaundrydb,function(data){
+        //     const sLaundryTr = new Date(data.val().date);
+        //     // console.log(data.val().date);
+        //     laundrytimeStart = sLaundryTr;
+        //     let month = sLaundryTr.getMonth() + 1;
+        //     let day = sLaundryTr.getDate(); 
+        //     let hour = sLaundryTr.getHours();
+        //     let min = sLaundryTr.getMinutes();
+        //     let sec = sLaundryTr.getSeconds();   
+        //     let slaundryThs = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+            
+        //     // console.log(swashTrs);
+        //     $("#sLaundryTime").text(slaundryThs);          
+        //     $('#LaundryStatus').text('〇　進行中');
+        //     $("#eLaundryTime").text('');
+
+        // });
+
+        // onValue(eLaundrydb,function(data){
+        //     const eLaundryTr = new Date(data.val().date);
+        //     laundrytimeEnd = eLaundryTr;   
+        //     console.log=(laundrytimeEnd);
+        //     let month = eLaundryTr.getMonth() + 1;
+        //     let day = eLaundryTr.getDate(); 
+        //     let hour = eLaundryTr.getHours();
+        //     let min = eLaundryTr.getMinutes();
+        //     let sec = eLaundryTr.getSeconds();   
+        //     let eLaundryTrs = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+        //     $("#eLaundryTime").text(eLaundryTrs);
+            
+        //     let laundryHourDif = Math.floor((laundrytimeEnd-laundrytimeStart)/1000/60/60%24);
+        //     let laundryMinDif = Math.floor((laundrytimeEnd-laundrytimeStart)/1000/60%60);
+        //     let laundrySecDif = Math.floor((laundrytimeEnd-laundrytimeStart)/1000%60);
+        //     $('#LaundryStatus').text('→　完了！(所要時間：'+laundryHourDif+'時間'+laundryMinDif+'分'+laundrySecDif+'秒）');
+
+        // });
+
+
+        // onValue(sDogdb,function(data){
+        //     const sDogTr = new Date(data.val().date);
+        //     // console.log(data.val().date);
+        //     dogtimeStart = sDogTr;
+        //     let month = sDogTr.getMonth() + 1;
+        //     let day = sDogTr.getDate(); 
+        //     let hour = sDogTr.getHours();
+        //     let min = sDogTr.getMinutes();
+        //     let sec = sDogTr.getSeconds();   
+        //     let sdogThs = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+            
+        //     // console.log(swashTrs);
+        //     $("#sDogTime").text(sdogThs);          
+        //     $('#DogStatus').text('〇　進行中');
+        //     $("#eDogTime").text('');
+
+        // });
+
+        // onValue(eDogdb,function(data){
+        //     const eDogTr = new Date(data.val().date);
+        //     dogtimeEnd = eDogTr;   
+        //     console.log=(dogtimeEnd);
+        //     let month = eDogTr.getMonth() + 1;
+        //     let day = eDogTr.getDate(); 
+        //     let hour = eDogTr.getHours();
+        //     let min = eDogTr.getMinutes();
+        //     let sec = eDogTr.getSeconds();   
+        //     let eDogTrs = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+        //     $("#eDogTime").text(eDogTrs);
+            
+        //     let dogHourDif = Math.floor((dogtimeEnd-dogtimeStart)/1000/60/60%24);
+        //     let dogMinDif = Math.floor((dogtimeEnd-dogtimeStart)/1000/60%60);
+        //     let dogSecDif = Math.floor((dogtimeEnd-dogtimeStart)/1000%60);
+        //     $('#DogStatus').text('→　完了！(所要時間：'+dogHourDif+'時間'+dogMinDif+'分'+dogSecDif+'秒）');
+
+        // });
+
+         
+        
+        
+
+        
+        
+        // console.log(timePrintNew(sWashdb, washtimeStart,"#sWashTime",'#WashStatus', '進行中'));
+
+
+        // $('#sWash').on('click', function () {
+        //     let startwash = {
+        //         date: serverTimestamp(),
+        //                     }
+        //     // const newPostRef = push(dbRef); 会話履歴を残すわけではないので、固有IDは使用せず
+        //     set(sWashdb, startwash); // firebaseの登録できる場所に保存するイメージです🤗
+        // });
+
+        // $('#eWash').on('click', function () {
+        //     const endwash = {
+        //         date: serverTimestamp(), 
+        //                     }
+        //     // const newPostRef = push(dbRef); //データを送信できる準備
+        //     set(eWashdb, endwash); // firebaseの登録できる場所に保存するイメージです🤗
+        // });
+
+        // onChildAdded(sWashdb,function(data){
+        //     washtimeStart = new Date(data.val());
+        //     month = washtimeStart.getMonth() + 1;
+        //     day = washtimeStart.getDate(); 
+        //     hour = washtimeStart.getHours();
+        //     min = washtimeStart.getMinutes();
+        //     sec = washtimeStart.getSeconds();   
+        //     washtimeStart = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+            
+        //     $("#sWashTime").text(washtimeStart);
+        //     $('#WashStatus').text('進行中');
+
+        // });
+
+
+
+        // onChildAdded(eWashdb,function(data){
+        //     const eWashT = new Date(data.val());    
+        //     washtimeEnd = eWashT;
+        //     let month = eWashT.getMonth() + 1;
+        //     let day = eWashT.getDate(); 
+        //     let hour = eWashT.getHours();
+        //     let min = eWashT.getMinutes();
+        //     let sec = eWashT.getSeconds();   
+        //     let eWashTs = month+'月'+day+'日'+hour+'時'+min+'分'+sec+'秒'
+            
+        //     $("#eWashTime").text(eWashTs);
+            
+        //     // console.log(Math.floor((timee-times)/1000/60%60));
+        //     // console.log(Math.floor((timee-times)/1000%60));
+        //     washMinDif = Math.floor((washtimeEnd-washtimeStart)/1000/60%60);
+        //     washSecDif = Math.floor((washtimeEnd-washtimeStart)/1000%60);
+        //     $('#WashStatus').text('完了(所要時間：'+washMinDif+'分'+washSecDif+'秒）');
+        // });
+
+
+        
+
+
+    </script>
+
+<!-- <script src="js/main.js"></script> -->
+</body>
+
+</html>
